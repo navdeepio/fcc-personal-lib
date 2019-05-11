@@ -9,10 +9,11 @@
 'use strict';
 
 var expect = require('chai').expect;
-var MongoClient = require('mongodb').MongoClient;
-var ObjectId = require('mongodb').ObjectId;
 const MONGODB_CONNECTION_STRING = process.env.DB;
-//Example connection: MongoClient.connect(MONGODB_CONNECTION_STRING, function(err, db) {});
+const mongoose = require('mongoose');
+const Book = require('../Book');
+
+mongoose.connect(MONGODB_CONNECTION_STRING, { useNewUrlParser: true });
 
 module.exports = function (app) {
 
@@ -20,17 +21,34 @@ module.exports = function (app) {
     .get(function (req, res){
       //response will be array of book objects
       //json res format: [{"_id": bookid, "title": book_title, "commentcount": num_of_comments },...]
+      Book.find({}, function (err, results) {
+        if (err) return res.status(500).json({ message: 'internal server error' });
+        const filtered = results.reduce((prev, cur) => {
+          let tmp = cur;
+          const commentcount = curr.comments.length;
+          delete tmp.comments;
+          tmp['commentcount'] = commentcount;
+          return [...prev, tmp];
+        }, [] );
+        return res.json(filtered);
+      });
     })
-    
     .post(function (req, res){
-      var title = req.body.title;
-      //response will contain new book object including atleast _id and title
+      const { title } = req.body;
+      if (title !== '') {
+        let book = new Book({ title });
+        book.save((err, data) => {
+          if (err) return res.status(500).json({ message: 'internal server error' });
+          return res.json(data);
+        });
+      } else {
+        return res.status(400).json({ message: 'no title provided' });
+      }
     })
     
     .delete(function(req, res){
       //if successful response will be 'complete delete successful'
     });
-
 
 
   app.route('/api/books/:id')
