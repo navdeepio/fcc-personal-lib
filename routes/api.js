@@ -16,7 +16,6 @@ const Book = require('../Book');
 mongoose.connect(MONGODB_CONNECTION_STRING, { useNewUrlParser: true });
 
 module.exports = function (app) {
-
   app.route('/api/books')
     .get(function (req, res){
       //response will be array of book objects
@@ -41,31 +40,63 @@ module.exports = function (app) {
           if (err) return res.status(500).json({ message: 'internal server error' });
           return res.json(data);
         });
-      } else {
-        return res.status(400).json({ message: 'no title provided' });
       }
+      return res.status(400).json({ message: 'no title provided' });
     })
-    
-    .delete(function(req, res){
-      //if successful response will be 'complete delete successful'
+    .delete((req, res, next) => {
+      Book.deleteMany({}, (err, data) => {
+        if (err) next(err);
+        res.json({ message: 'complete delete successful' });
+      });
     });
 
 
   app.route('/api/books/:id')
     .get(function (req, res){
-      var bookid = req.params.id;
-      //json res format: {"_id": bookid, "title": book_title, "comments": [comment,comment,...]}
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({ message: 'missing book id' });
+      }
+      Book.findById(id, (err, data) => {
+        if (err) return res.status(500).json({ message: 'internal server error' });
+        if (!data) {
+          return res.json({ message: 'no book exists' });
+        }
+        res.json(data);
+      });
     })
-    
     .post(function(req, res){
-      var bookid = req.params.id;
-      var comment = req.body.comment;
-      //json res format same as .get
+      const { id } = req.params;
+      const { comment } = req.body;
+      if (!id) {
+        return res.status(400).json({ message: 'missing book id' });
+      } else if (comment === '') {
+        return res.status(400).json({ message: 'empty comment string' });
+      }
+      Book.findById(id, function (err, data) {
+        if (err) return res.status(500).json({ message: 'internal server error' });
+        if (!data) {
+          return res.json({ message: 'no book exists' });
+        }
+        data.comments.push(comment);
+        data.save(function(err, result) {
+          if (err) throw err;
+          res.json(result);
+        })
+      })
     })
-    
     .delete(function(req, res){
-      var bookid = req.params.id;
-      //if successful response will be 'delete successful'
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({ message: 'missing book id' });
+      }
+      Book.findByIdAndDelete(id, function (err, res) {
+        if (err) return res.status(500).json({ message: 'internal server error' });
+        if (!res) {
+          return res.json({ message: 'no book exists' });
+        }
+        res.json({ message: 'delete successful' });
+      })
     });
   
 };
